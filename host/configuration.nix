@@ -2,65 +2,71 @@
 
 {
   imports = [
-    #(modulesPath + "/profiles/minimal.nix")
-    #(modulesPath + "/profiles/headless.nix")
-    (modulesPath + "/virtualisation/qemu-vm.nix")
+    ./hardware-configuration.nix
   ];
 
-  #systemd.services."serial-getty@ttyS0".enable = true;
+  # Prevent blank screen on booting.
+  boot.kernelParams = [ "nomodeset" ];
 
-  virtualisation = {
-    memorySize = 4096;
-    cores = 4;
+  boot.loader.grub.enable = true;
+  boot.loader.grub.version = 2;
+  boot.loader.grub.device = "/dev/sda"; # or "nodev" for efi only
 
-    # We need mkForce to nuke the userspace networking that gets added by qemu-vm.nix
-    qemu.networkingOptions = lib.mkForce [
-      # TODO We wnat to actually put packets in here...
-      "-netdev user,id=in,restrict=on"
-      "-device virtio-net,netdev=in,mac=52:54:00:12:34:56"
+  time.timeZone = "Europe/Berlin";
+  services.chrony.enable = true;
 
-      # ... and take them out here.
-      "-netdev user,id=out,restrict=on"
-      "-device virtio-net,netdev=out,mac=52:54:00:12:34:57"
-    ];
-  };
+  services.openssh.enable = true;
 
-  # User account for poking the system.
+  networking.hostName = "big-edge"; # Define your hostname.
+
   users.users.demo = {
-    isNormalUser = true;
-    description = "Demo user account";
-    extraGroups = [ "wheel" ];
-    password = "demo";
-    uid = 1000;
+     isNormalUser = true;
+     extraGroups = [ "wheel" "kvm" ]; # Enable ‘sudo’ for the user.
+     initialPassword = "demodemo";
   };
 
-  # Disable host networking as much as possible.
+  environment.systemPackages = with pkgs; [
+    vim
+    zile
+    tmux
+  ];
+
+  ### Networking Configuration
+
   networking = {
-    enableIPv6 = false;
     useDHCP = false;
+    enableIPv6 = false;
+
     interfaces = {
-      eth0.ipv4.addresses = [];
-      eth1.ipv4.addresses = [];
+      # This is the right most port on the box. We use this as "management" port.
+      enp3s0.useDHCP = true;
+
+      # Everything else should not be autoconfigured.
+      enp1s0.ipv4.addresses = [];
+      enp2s0.ipv4.addresses = [];
+      enp4s0.ipv4.addresses = [];
     };
 
     # There is a macvlans option that creates macvlan interfaces, but
     # for some reason we don't get the corresponding tap devices.
   };
 
-  systemd.services.create-macvlans = {
-    path = [ pkgs.iproute2 ];
-    script = ''
-      ip link add link eth0 name macvtap0 type macvtap mode passthru
-      ip link add link eth1 name macvtap1 type macvtap mode passthru
+  # systemd.services.create-macvlans = {
+  #   path = [ pkgs.iproute2 ];
+  #   script = ''
+  #     ip link add link eth0 name macvtap0 type macvtap mode passthru
+  #     ip link add link eth1 name macvtap1 type macvtap mode passthru
 
-      ip link set macvtap0 up
-      ip link set macvtap1 up
-    '';
-    wantedBy = [ "multi-user.target" ];
-    wants = [ "network-online.target" ];
-    after = [ "network-online.target" ];
-  };
+  #     ip link set macvtap0 up
+  #     ip link set macvtap1 up
+  #   '';
+  #   wantedBy = [ "multi-user.target" ];
+  #   wants = [ "network-online.target" ];
+  #   after = [ "network-online.target" ];
+  # };
 
   # https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/virtualization_administration_guide/sect-attch-nic-physdev
   # https://nixos.wiki/wiki/Adding_VMs_to_PATH
+
+  system.stateVersion = "21.11"; # Did you read the comment?
 }
