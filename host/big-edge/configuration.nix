@@ -7,8 +7,7 @@
 {
   imports = [
     ./hardware-configuration.nix
-
-    (import ./vm-service.nix { name = "fwd0"; configuration = (import ./fwd-vm.nix); })
+    ../common.nix
   ];
 
   # Prevent blank screen on booting.
@@ -19,38 +18,7 @@
   boot.loader.grub.device = "/dev/sda"; # or "nodev" for efi only
 
   time.timeZone = "Europe/Berlin";
-  services.chrony.enable = true;
-
-  services.openssh.enable = true;
-
   networking.hostName = "big-edge"; # Define your hostname.
-
-  users.users.demo = {
-     isNormalUser = true;
-     extraGroups = [ "wheel" "kvm" ]; # Enable ‘sudo’ for the user.
-     initialPassword = "demodemo";
-  };
-
-  environment.systemPackages = with pkgs; [
-    vim
-    zile
-    tmux
-    htop
-    dstat
-  ];
-
-  nix = {
-    trustedUsers = [ "root" "demo" ];
-    package = pkgs.nix_2_4;
-    extraOptions = ''
-      experimental-features = nix-command flakes
-    '';
-  };
-
-  # For convenient deployment.
-  security.sudo.wheelNeedsPassword = false;
-
-  ### Networking Configuration
 
   networking = {
     useDHCP = false;

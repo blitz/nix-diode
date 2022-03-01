@@ -33,10 +33,11 @@
     nixosConfigurations = {
       big-edge = nixpkgs.lib.nixosSystem {
         system = "x86_64-linux";
-
-        modules = [
-          ./host/configuration.nix
-        ];
+        modules = [ ./host/big-edge/configuration.nix ];
+      };
+      squeakbox = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [ ./host/squeakbox/configuration.nix ];
       };
     };
 
