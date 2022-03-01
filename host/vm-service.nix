@@ -14,8 +14,8 @@ in {
   systemd.services.${name} = {
     wantedBy = [ "multi-user.target" ];
 
-    wants = [ "create-macvlans" ];
-    after = [ "create-macvlans" ];
+    wants = [ "create-macvlans.service" ];
+    after = [ "create-macvlans.service" ];
 
     restartIfChanged = true;
 
@@ -23,14 +23,13 @@ in {
       nixos-vm
     ];
 
-    environment = {
-      # We want stateless VMs.
-      NIX_DISK_IMAGE = "/nonexistent";
-    };
     script = ''
-      TAP_DEVICE=/dev/$(ls /sys/class/net/${macvtap}/macvtap | head -n1)
+      mkdir -p /var/lib/vms
+      export NIX_DISK_IMAGE="/var/lib/vms/${name}"
+      rm -f "$NIX_DISK_IMAGE"
 
       export QEMU_OPTS="-nographic -serial stdio -monitor none"
+      # TAP_DEVICE=/dev/$(ls /sys/class/net/${macvtap}/macvtap | head -n1)
       # TODO -net nic,model=virtio,addr=1a:46:0b:ca:bc:7b -net tap,fd=3 3<>$TAP_DEVICE
       run-fwd-vm
     '';
