@@ -8,9 +8,6 @@
   imports = [
     ../common.nix    
     ./hardware-configuration.nix
-
-    (import ../vm-service.nix { name = "fwd0"; configuration = (import ../fwd-vm.nix); macvtap = "macvtap0"; })
-    (import ../vm-service.nix { name = "fwd1"; configuration = (import ../fwd-vm.nix); macvtap = "macvtap1"; })
   ];
 
   # Prevent blank screen on booting.

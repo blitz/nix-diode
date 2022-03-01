@@ -7,9 +7,21 @@
       configuration = import ./fwd-vm.nix;
 
       # XXX This device does not work. I assume we want to refactor things to use PCI passthrough.
+      macvtap = "macvtap0";
+      cid = 3;
+    })
+
+    (import ./vm-service.nix {
+      name = "fwd1";
+      configuration = import ./fwd-vm.nix;
+
+      # XXX This device does not work. I assume we want to refactor things to use PCI passthrough.
       macvtap = "macvtap1";
+      cid = 4;
     })
   ];
+
+  boot.kernelModules = [ "vhost_vsock" ];
 
   services.chrony.enable = true;
 
@@ -27,6 +39,7 @@
     tmux
     htop
     dstat
+    bottom
   ];
 
   nix = {

@@ -4,7 +4,10 @@
   name,
 
   # The tap device to connect the VM to. This is /dev/tapX.
-  macvtap
+  macvtap,
+
+  # The guest "address" in the vhost world. Needs to be >= 3 and unique.
+  cid
 }:
 { config, pkgs, modulesPath, lib, ... }:
 let
@@ -28,7 +31,7 @@ in {
       export NIX_DISK_IMAGE="/var/lib/vms/${name}"
       rm -f "$NIX_DISK_IMAGE"
 
-      export QEMU_OPTS="-nographic -serial stdio -monitor none"
+      export QEMU_OPTS="-nographic -serial stdio -monitor none -device vhost-vsock-pci,guest-cid=${builtins.toString cid}"
       # TAP_DEVICE=/dev/$(ls /sys/class/net/${macvtap}/macvtap | head -n1)
       # TODO -net nic,model=virtio,addr=1a:46:0b:ca:bc:7b -net tap,fd=3 3<>$TAP_DEVICE
       run-fwd-vm
