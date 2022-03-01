@@ -21,10 +21,14 @@
     })
   ];
 
+  # Living on the edge.
+  boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelParams = [ "mitigations=off" ];
+
+  # For vsock sockets.
   boot.kernelModules = [ "vhost_vsock" ];
 
   services.chrony.enable = true;
-
   services.openssh.enable = true;
 
   users.users.demo = {
