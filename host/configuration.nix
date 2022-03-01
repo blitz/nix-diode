@@ -29,12 +29,20 @@
     vim
     zile
     tmux
+    htop
+    dstat
   ];
 
   nix = {
     trustedUsers = [ "root" "demo" ];
     package = pkgs.nix_2_4;
+    extraOptions = ''
+      experimental-features = nix-command flakes
+    '';
   };
+
+  # For convenient deployment.
+  security.sudo.wheelNeedsPassword = false;
 
   ### Networking Configuration
 
