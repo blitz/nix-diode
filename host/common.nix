@@ -44,6 +44,7 @@
     htop
     dstat
     bottom
+    socat
   ];
 
   nix = {
