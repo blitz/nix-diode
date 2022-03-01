@@ -1,7 +1,11 @@
 # Adapted from https://nixos.wiki/wiki/Adding_VMs_to_PATH
 { configuration,
   # Must be unique, because we use it as systemd service name.
-  name }:
+  name,
+
+  # The tap device to connect the VM to. This is /dev/tapX.
+  macvtap
+}:
 { config, pkgs, modulesPath, lib, ... }:
 let
   nixos-system = pkgs.nixos configuration;
@@ -20,12 +24,15 @@ in {
     ];
 
     environment = {
-      QEMU_NET_OPTS = "";
-      QEMU_ARGS = "-vga none -display none -serial stdio -m 512M";
-
       # We want stateless VMs.
       NIX_DISK_IMAGE = "/nonexistent";
     };
-    script = "run-fwd-vm";
+    script = ''
+      TAP_DEVICE=/dev/$(ls /sys/class/net/${macvtap}/macvtap | head -n1)
+
+      export QEMU_OPTS="-nographic -serial stdio -monitor none"
+      # TODO -net nic,model=virtio,addr=1a:46:0b:ca:bc:7b -net tap,fd=3 3<>$TAP_DEVICE
+      run-fwd-vm
+    '';
   };
 }

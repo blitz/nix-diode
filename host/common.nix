@@ -5,6 +5,9 @@
     (import ./vm-service.nix {
       name = "fwd0";
       configuration = import ./fwd-vm.nix;
+
+      # XXX This device does not work. I assume we want to refactor things to use PCI passthrough.
+      macvtap = "macvtap1";
     })
   ];
 
