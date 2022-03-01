@@ -6,4 +6,13 @@
 
   # Nothing here yet.
   networking.hostName = "fwd";
+  virtualisation = {
+    memorySize = 512;
+    graphics = false;
+    writableStore = false;
+
+    qemu = {
+      networkingOptions = lib.mkForce [];
+    };
+  };
 }
