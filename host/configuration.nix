@@ -7,6 +7,8 @@
 {
   imports = [
     ./hardware-configuration.nix
+
+    (import ./vm-service.nix { name = "fwd0"; configuration = (import ./fwd-vm.nix); })
   ];
 
   # Prevent blank screen on booting.
@@ -81,6 +83,9 @@
   systemd.services.create-macvlans = {
     path = [ pkgs.iproute2 ];
     script = ''
+      ip link delete macvtap0 || true
+      ip link delete macvtap1 || true
+
       ip link add link enp1s0 name macvtap0 type macvtap mode passthru
       ip link add link enp2s0 name macvtap1 type macvtap mode passthru
 
