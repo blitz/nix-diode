@@ -1,3 +1,7 @@
+# Deploy me with:
+#
+# nixos-rebuild boot --flake .#big-edge --target-host demo@172.27.30.100 --use-remote-sudo --builders ""
+
 { config, pkgs, modulesPath, lib, ... }:
 
 {
