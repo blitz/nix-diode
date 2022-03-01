@@ -31,6 +31,11 @@
     tmux
   ];
 
+  nix = {
+    trustedUsers = [ "root" "demo" ];
+    package = pkgs.nix_2_4;
+  };
+
   ### Networking Configuration
 
   networking = {
