@@ -1,4 +1,4 @@
-{ config, pkgs, modulesPath, lib, ... }:
+{ config, pkgs, modulesPath, lib,  ... }:
 {
   imports = [
     (modulesPath + "/virtualisation/qemu-vm.nix")
@@ -7,6 +7,8 @@
 
   boot.kernelPackages = pkgs.linuxPackages_latest;
   boot.kernelParams = [ "console=ttyS0" ];
+
+  nix.enable = false;
 
   virtualisation = {
     memorySize = 512;
@@ -36,16 +38,21 @@
     restartIfChanged = true;
 
     path = [
-      pkgs.socat pkgs.iproute2 pkgs.inetutils pkgs.pciutils
+      pkgs.pkt_fwd pkgs.iproute2
     ];
+
+    serviceConfig = {
+      Restart = "always";
+      RestartSec = 0;
+    };
 
     script = ''
       ip link delete macvtap0 || true
       ip link add link eth0 name macvtap0 type macvtap mode passthru
       ip link set macvtap0 up
 
-      # XXXX We are losing the packet boundaries.
-      socat OPEN:"/dev/$(ls /sys/class/net/macvtap0/macvtap | head -n1)" VSOCK-LISTEN:2000,forever,interval=10,fork &> /dev/console
+      echo "Starting forwarder..."
+      pkt_fwd unframed file:"/dev/$(ls /sys/class/net/macvtap0/macvtap | head -n1)" framed vsock:2000 &> /dev/console
     '';
   };
 

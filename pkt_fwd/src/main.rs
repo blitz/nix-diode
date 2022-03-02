@@ -3,10 +3,12 @@ use log::{debug, info, trace};
 use std::error::Error;
 use std::fmt::Display;
 use std::fs::{File, OpenOptions};
+use std::future::Future;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use tokio::io::{split, AsyncReadExt, AsyncWriteExt};
+use tokio::{join, try_join};
 
 #[derive(Debug, Clone, PartialEq)]
 enum Source {
@@ -162,6 +164,7 @@ async fn write(
     output: &mut (impl AsyncWriteExt + std::marker::Unpin),
     framing: Framedness,
 ) -> Result<(), std::io::Error> {
+    debug!("Write loop running.");
     loop {
         let packet = packet_source
             .recv()
@@ -169,6 +172,7 @@ async fn write(
             // XXX Need a better error type.
             .ok_or(std::io::Error::from_raw_os_error(22))?;
 
+        trace!("Write {:?} {} byte packet.", framing, packet.size);
         let header = u64::try_from(packet.size).unwrap().to_le_bytes();
 
         match framing {
@@ -187,24 +191,26 @@ async fn spawn_vsock(
     framedness: Framedness,
     packet_source: PacketSource,
     packet_sink: PacketSink,
-) -> Result<(), Box<dyn Error>> {
+) -> () {
     assert_eq!(
         framedness,
         Framedness::Framed,
         "Vsocks can only be used with framed packets"
     );
 
-    let mut listener = tokio_vsock::VsockListener::bind(0, port)?;
+    let mut listener = tokio_vsock::VsockListener::bind(u32::MAX, port).unwrap();
 
-    let (stream, addr) = listener.accept().await?;
+    let (stream, addr) = listener.accept().await.unwrap();
     info!("Accepted connection from {}.", addr);
 
     let (mut stream_rh, mut stream_wh) = split(stream);
 
-    tokio::spawn(async move { read_framed(&mut stream_rh, packet_sink).await });
-    tokio::spawn(async move { write(packet_source, &mut stream_wh, Framedness::Framed).await });
+    let read_fut = tokio::spawn(async move { read_framed(&mut stream_rh, packet_sink).await });
+    let write_fut =
+        tokio::spawn(async move { write(packet_source, &mut stream_wh, Framedness::Framed).await });
 
-    Ok(())
+    let (read_res, write_res) = try_join!(read_fut, write_fut).unwrap();
+    read_res.and(write_res).unwrap();
 }
 
 fn open_file(path: &Path) -> io::Result<File> {
@@ -212,54 +218,72 @@ fn open_file(path: &Path) -> io::Result<File> {
 }
 
 async fn spawn_file(
-    file_name: &Path,
+    file_name: PathBuf,
     framedness: Framedness,
     packet_source: PacketSource,
     packet_sink: PacketSink,
-) -> Result<(), Box<dyn Error>> {
-    let file = tokio::fs::File::from_std(open_file(file_name)?);
+) -> () {
+    let file = tokio::fs::File::from_std(open_file(&file_name).unwrap());
     let (mut stream_rh, mut stream_wh) = split(file);
 
-    match framedness {
+    let read_fut = match framedness {
         Framedness::Framed => {
-            tokio::spawn(async move { read_framed(&mut stream_rh, packet_sink).await });
+            tokio::spawn(async move { read_framed(&mut stream_rh, packet_sink).await })
         }
         Framedness::Unframed => {
-            tokio::spawn(async move { read_unframed(&mut stream_rh, packet_sink).await });
+            tokio::spawn(async move { read_unframed(&mut stream_rh, packet_sink).await })
         }
-    }
+    };
 
-    tokio::spawn(async move { write(packet_source, &mut stream_wh, framedness).await });
+    let write_fut =
+        tokio::spawn(async move { write(packet_source, &mut stream_wh, framedness).await });
 
-    Ok(())
+    let (read_res, write_res) = try_join!(read_fut, write_fut).unwrap();
+    read_res.and(write_res).unwrap();
 }
+
+type BoxedFuture = Box<dyn Future<Output = ()> + Unpin>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    stderrlog::new().module(module_path!()).init().unwrap();
+    stderrlog::new().verbosity(100).init()?;
 
     let (inout_sink, inout_source) = tokio::sync::mpsc::channel(16);
     let (outin_sink, outin_source) = tokio::sync::mpsc::channel(16);
 
-    match args.input {
-        Source::File(file_name) => {
-            spawn_file(&file_name, args.input_framedness, outin_source, inout_sink).await?
-        }
-        Source::PassiveVsock(port) => {
-            spawn_vsock(port, args.input_framedness, outin_source, inout_sink).await?
-        }
-    }
+    let in_fut: BoxedFuture = match args.input {
+        Source::File(file_name) => Box::new(Box::pin(spawn_file(
+            file_name,
+            args.input_framedness,
+            outin_source,
+            inout_sink,
+        ))),
+        Source::PassiveVsock(port) => Box::new(Box::pin(spawn_vsock(
+            port,
+            args.input_framedness,
+            outin_source,
+            inout_sink,
+        ))),
+    };
 
-    match args.output {
-        Source::File(file_name) => {
-            spawn_file(&file_name, args.output_framedness, inout_source, outin_sink).await?
-        }
-        Source::PassiveVsock(port) => {
-            spawn_vsock(port, args.output_framedness, inout_source, outin_sink).await?
-        }
-    }
+    let out_fut: BoxedFuture = match args.output {
+        Source::File(file_name) => Box::new(Box::pin(spawn_file(
+            file_name,
+            args.output_framedness,
+            inout_source,
+            outin_sink,
+        ))),
+        Source::PassiveVsock(port) => Box::new(Box::pin(spawn_vsock(
+            port,
+            args.output_framedness,
+            inout_source,
+            outin_sink,
+        ))),
+    };
+
+    join!(in_fut, out_fut);
 
     Ok(())
 }
