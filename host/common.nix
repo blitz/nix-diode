@@ -55,6 +55,9 @@
   # For convenient deployment.
   security.sudo.wheelNeedsPassword = false;
 
-  # https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/virtualization_administration_guide/sect-attch-nic-physdev
-  # https://nixos.wiki/wiki/Adding_VMs_to_PATH
+  # Avoid filling up the disk.
+  services.journald.extraConfig = ''
+    SystemMaxUse=250M
+    SystemMaxFileSize=50M
+  '';
 }
