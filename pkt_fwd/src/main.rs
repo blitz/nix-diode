@@ -1,5 +1,5 @@
 use clap::Parser;
-use log::{debug, info, trace};
+use log::{debug, info, trace, warn};
 use std::error::Error;
 use std::fmt::Display;
 use std::fs::{File, OpenOptions};
@@ -146,7 +146,11 @@ async fn read_framed(
         input.read_exact(&mut header).await?;
 
         let size: usize = u64::from_le_bytes(header).try_into().unwrap();
-        assert!(size < packet.len());
+
+        if size >= packet.len() {
+            warn!("Got crap packet size: {}", size);
+            continue;
+        }
 
         trace!("Read framed {} byte packet.", size);
         input.read_exact(&mut packet[0..size]).await?;
@@ -182,7 +186,14 @@ async fn write(
             }
         }
 
+        trace!(
+            "Write {:?} {} byte packet. {:?}",
+            framing,
+            packet.as_slice().len(),
+            packet.as_slice()
+        );
         output.write_all(packet.as_slice()).await?;
+        trace!("Write done!");
     }
 }
 
@@ -223,6 +234,8 @@ async fn spawn_file(
     packet_source: PacketSource,
     packet_sink: PacketSink,
 ) -> () {
+    info!("Opening file: {}", file_name.display());
+
     let file = tokio::fs::File::from_std(open_file(&file_name).unwrap());
     let (mut stream_rh, mut stream_wh) = split(file);
 
