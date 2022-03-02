@@ -5,14 +5,14 @@
     (import ./vm-service.nix {
       name = "fwd0";
       configuration = import ./fwd-vm.nix;
-      macvtap = "macvtap0";
+      nic = "enp1s0";
       cid = 3;
     })
 
     (import ./vm-service.nix {
       name = "fwd1";
       configuration = import ./fwd-vm.nix;
-      macvtap = "macvtap1";
+      nic = "enp2s0";
       cid = 4;
     })
   ];
@@ -51,6 +51,8 @@
       experimental-features = nix-command flakes
     '';
   };
+
+  networking.firewall.enable = false;
 
   # For convenient deployment.
   security.sudo.wheelNeedsPassword = false;

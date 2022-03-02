@@ -28,6 +28,8 @@
     useDHCP = false;
     enableIPv6 = false;
     interfaces.eth0.ipv4.addresses = [];
+
+    firewall.enable = false;
   };
 
   systemd.services.netfwd = {
@@ -52,7 +54,12 @@
       ip link set macvtap0 up
 
       echo "Starting forwarder..."
-      pkt_fwd unframed file:"/dev/$(ls /sys/class/net/macvtap0/macvtap | head -n1)" framed vsock:2000 &> /dev/console
+      # XXX Writing to the tap device currently doesn't work. The packets don't go through. I'm still debugging.
+      #
+      # The host also must _manually_ run something like 'socat VSOCK-CONNECT:4:2000 VSOCK-CONNECT:3:2000' to splice
+      # the forwarding VMs together.
+
+      pkt_fwd unframed file:"/dev/$(ls /sys/class/net/macvtap0/macvtap | head -n1)" framed vsock:2000  &> /dev/console
     '';
   };
 
