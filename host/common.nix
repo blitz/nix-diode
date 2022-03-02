@@ -41,6 +41,7 @@
     dstat
     bottom
     socat
+    pv
   ];
 
   nix = {
