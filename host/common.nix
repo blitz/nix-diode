@@ -2,20 +2,13 @@
 
 {
   imports = [
-    (import ./vm-service.nix {
-      name = "fwd0";
-      configuration = import ./fwd-vm.nix;
-      nic = "enp1s0";
-      cid = 3;
-    })
-
-    (import ./vm-service.nix {
-      name = "fwd1";
-      configuration = import ./fwd-vm.nix;
-      nic = "enp2s0";
-      cid = 4;
-    })
+    ./network-compartment.nix
   ];
+
+  compartments.network = {
+    fwd0 = { nic = "enp1s0"; cid = 3; };
+    fwd1 = { nic = "enp2s0"; cid = 4; };
+  };
 
   # Living on the edge.
   boot.kernelPackages = pkgs.linuxPackages_latest;
